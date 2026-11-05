@@ -10,15 +10,9 @@ module.exports = grammar({
     $.comment,
   ],
 
-conflicts: $ => [
-    [$.method_call_expr, $.member_expr],
-    [$.struct_field_assign_stmt, $.primary_expr],
-    [$.autotuner_var_decl, $.assign_stmt],
-    [$.var_decl_stmt, $.assign_stmt],
-    [$.type, $.qualified_name],
+  conflicts: $ => [
     [$.qualified_name, $.qualified_type],
-    [$.expr, $.primary_expr],
-],
+  ],
 
   rules: {
     // -----------------------------------------------------------------------
@@ -66,9 +60,16 @@ conflicts: $ => [
     // We keep interleaving here for resilience; the test corpus only uses
     // fields-first order anyway.
     // -----------------------------------------------------------------------
+    type_parameter: $ => $.identifier,
+    generic_param_list: $ => seq(
+      alias('<', $.type_args_open),
+      commaSep1($.type_parameter),
+      alias('>', $.type_args_close),
+    ),
     struct_decl: $ => seq(
       'struct',
       field('name', $.identifier),
+      optional(field('generic_params', $.generic_param_list)),
       '{',
       repeat(choice($.struct_field_decl, $.struct_routine_decl)),
       '}',
@@ -77,7 +78,7 @@ conflicts: $ => [
     struct_field_decl: $ => seq(
       field('type', $.type),
       field('name', $.identifier),
-      optional(seq('=', field('default', $.expr))),
+      optional(seq('=', field('default', $._expr))),
       ';'
     ),
 
@@ -89,7 +90,7 @@ conflicts: $ => [
     struct_routine_decl: $ => seq(
       'routine',
       field('name', $.identifier),
-      optional(field('inputs', $.param_list)), 
+      optional(field('inputs', $.param_list)),
       alias('->', $.direction),
       field('outputs', $.param_list),
       optional(field('body', $.struct_routine_body))
@@ -116,15 +117,10 @@ conflicts: $ => [
 
     // Statements valid inside a struct routine body.
     // Matches parser.y's struct_routine_stmt alternatives.
-    // Note: bare `identifier = expr ;` is handled as struct_field_assign_stmt
-    // when the identifier is a known struct field (runtime context in Bison).
-    // In tree-sitter we cannot replicate that context, so we use assign_stmt
-    // for the bare form and struct_field_assign_stmt only for dot-notation.
     struct_routine_stmt: $ => choice(
       $.var_decl_stmt,
-      $.struct_field_assign_stmt,
       $.assign_stmt,
-      $.expr_stmt,
+      $._expr_stmt,
       $.if_stmt,
     ),
 
@@ -159,7 +155,7 @@ conflicts: $ => [
     autotuner_var_decl: $ => seq(
       field('type', $.type),
       field('name', $.identifier),
-      optional(seq('=', field('init', $.expr))),
+      optional(seq('=', field('init', $._expr))),
       ';'
     ),
 
@@ -198,28 +194,32 @@ conflicts: $ => [
       $.transition_stmt,
       $.terminal_stmt,
       $.if_stmt,
-      $.struct_field_assign_stmt,
-      $.expr_stmt,
+      $._expr_stmt,
     ),
 
     var_decl_stmt: $ => seq(
       field('type', $.type),
       field('variable_name', alias($.identifier, $.variable)),
-      optional(seq('=', field('init', $.expr))),
+      optional(seq('=', field('init', $._expr))),
       ';'
     ),
 
+    assignment_target: $ => choice(
+      alias($.identifier, $.variable),
+      $.member_expr,
+    ),
+
     assign_stmt: $ => seq(
-      field('targets', commaSep1(alias($.identifier, $.variable))),
+      field('targets', commaSep1($.assignment_target)),
       '=',
-      field('value', $.expr),
+      field('value', $._expr),
       ';'
     ),
 
     transition_stmt: $ => seq(
       alias('->', $.direction),
       field('target', $.identifier),
-      optional(seq('(', commaSep($.expr), ')')),
+      optional(seq('(', commaSep($._expr), ')')),
       ';'
     ),
 
@@ -234,7 +234,7 @@ conflicts: $ => [
     if_stmt: $ => seq(
       'if',
       '(',
-      field('condition', $.expr),
+      field('condition', $._expr),
       ')',
       '{',
       repeat($.stmt),
@@ -246,7 +246,7 @@ conflicts: $ => [
     elif_clause: $ => seq(
       'elif',
       '(',
-      field('condition', $.expr),
+      field('condition', $._expr),
       ')',
       '{',
       repeat($.stmt),
@@ -260,58 +260,22 @@ conflicts: $ => [
       '}'
     ),
 
-    // -----------------------------------------------------------------------
-    // Struct field assignment: obj.field = expr;  or  this.field = expr;
-    //
-    // prec(1) is required on both variants to resolve the generate-time
-    // conflict: when tree-sitter sees `this .` or `identifier .` inside a
-    // struct_routine_body it cannot immediately tell whether this is the start
-    // of a struct_field_assign_stmt or a primary_expr/member_expr/method_call.
-    // Giving this rule higher precedence tells tree-sitter to prefer the
-    // statement interpretation.
-    //
-    // The bare-name variant (field_ = val ;) is intentionally omitted — it is
-    // syntactically identical to assign_stmt and Bison resolves it only via
-    // runtime struct_field_scope context which tree-sitter cannot replicate.
-    // In practice, bare assignments inside struct routines will parse as
-    // assign_stmt, which is correct for the value = a_; / value = a_ + b_;
-    // cases (output params, not struct fields).
-    // -----------------------------------------------------------------------
-    struct_field_assign_stmt: $ => choice(
-      prec(1, seq(
-        'this', '.', field('field', $.identifier), '=', field('value', $.expr), ';'
-      )),
-      prec(1, seq(
-        field('object', $.identifier), '.', field('field', $.identifier), '=', field('value', $.expr), ';'
-      )),
-    ),
-
-    expr_stmt: $ => seq(
-      $.expr,
+    _expr_stmt: $ => seq(
+      $._expr,
       ';'
     ),
 
     // -----------------------------------------------------------------------
     // Expressions
     // -----------------------------------------------------------------------
-    expr: $ => choice(
-      $.binary_expr,
-      $.method_call_expr,
-      $.call_expr,
-      $.member_expr,
-      $.primary_expr,
-      $.index_expr,
-    ),
 
-    index_expr: $ => seq(
-      field('object', alias($.qualified_name, $.variable)),
-      field('open_bracket', token.immediate('[')),
-      field('index', $.expr),
-      field('close_bracket', token.immediate(']'))
-    ),
+    operator: $ => token(choice(
+      '+', '-', '*', '/', '==', '!=',
+      '<', '>', '<=', '>=', '&&', '||'
+    )),
 
     binary_expr: $ => prec.left(seq(
-      field('left', $.expr),
+      field('left', $._expr),
       field('operator', choice(
         alias('+', $.operator),
         alias('-', $.operator),
@@ -327,55 +291,57 @@ conflicts: $ => [
         alias('&&', $.operator),
         alias('||', $.operator)
       )),
-      field('right', $.expr),
+      field('right', $._expr),
     )),
 
-    operator: $ => token(choice(
-      '+', '-', '*', '/', '==', '!=', '<', '>', '<=', '>=', '&&', '||'
-    )),
-
-  method_call_expr: $ => prec(2, seq(
-    field('object', $.expr),
-    '.',
-    field('method', $.identifier),
-    '(',
-    commaSep(choice($.named_arg, $.expr)),
-    ')'
-  )),
-    call_expr: $ => prec(1, seq(
-      field('func', $.qualified_name),
-      '(',
-      commaSep(choice($.named_arg, $.expr)),
-      ')'
-    )),
-
-    member_expr: $ => seq(
-      field('object', $.expr),
-      '.',
-      field('member', $.identifier)
+    _primary_expr: $ => choice(
+      $.int_literal,
+      $.float_literal,
+      $.bool_literal,
+      $.string_literal,
+      $.nil_literal,
+      'this',
+      $.qualified_name,
+      seq('(', $._expr, ')')
     ),
 
     named_arg: $ => seq(
       field('name', $.identifier),
       '=',
-      field('value', $.expr)
+      field('value', $._expr)
     ),
 
-    // -----------------------------------------------------------------------
-    // Primary expressions
-    // -----------------------------------------------------------------------
-    primary_expr: $ => choice(
-        $.int_literal,
-        $.float_literal,
-        $.bool_literal,
-        $.string_literal,
-        $.nil_literal,
-        'this',
-        $.qualified_name,
-        $.member_expr,         
-        $.method_call_expr,   
-        seq('(', $.expr, ')')
-      ),
+    call_expr: $ => prec.left(seq(
+      field('func', $._postfix_expr),
+      token.immediate('('),
+      commaSep(choice($.named_arg, $._expr)),
+      token.immediate(')')
+    )),
+
+    member_expr: $ => prec.left(seq(
+      field('object', $._postfix_expr),
+      token.immediate('.'),
+      field('member', $.identifier)
+    )),
+
+    index_expr: $ => prec.left(seq(
+      field('object', $._postfix_expr),
+      token.immediate('['),
+      field('index', $._expr),
+      token.immediate(']')
+    )),
+
+    _postfix_expr: $ => choice(
+      $._primary_expr,
+      $.member_expr,
+      $.call_expr,
+      $.index_expr,
+    ),
+
+    _expr: $ => choice(
+      $.binary_expr,
+      $._postfix_expr,
+    ),
 
     // -----------------------------------------------------------------------
     // Qualified names — Module::symbol OR plain symbol
@@ -406,7 +372,7 @@ conflicts: $ => [
 
     param_decl: $ => seq(
       field('type', $.type),
-      field('param_name', $.identifier )
+      field('param_name', $.identifier)
     ),
 
     type: $ => seq(
