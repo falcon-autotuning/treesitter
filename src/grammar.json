@@ -1956,7 +1956,7 @@
     },
     "float_literal": {
       "type": "PATTERN",
-      "value": "\\d+\\.\\d+"
+      "value": "([0-9]+(\\.[0-9]*)?|\\.[0-9]+)([eE][+-]?[0-9]+)?"
     },
     "bool_literal": {
       "type": "CHOICE",

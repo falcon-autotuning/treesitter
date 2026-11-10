@@ -388,7 +388,8 @@ module.exports = grammar({
     // Literals
     // -----------------------------------------------------------------------
     int_literal: $ => /\d+/,
-    float_literal: $ => /\d+\.\d+/,
+    float_literal: $ =>
+      /([0-9]+(\.[0-9]*)?|\.[0-9]+)([eE][+-]?[0-9]+)?/,
     bool_literal: $ => choice('true', 'false'),
     string_literal: $ => seq('"', /[^"]*/, '"'),
     nil_literal: $ => 'nil',
