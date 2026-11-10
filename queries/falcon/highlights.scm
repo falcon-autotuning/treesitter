@@ -114,6 +114,9 @@
 (var_decl_stmt
   variable_name: (variable) @variable
   (#set! priority 201))
+(autotuner_var_decl
+  name: (identifier) @variable
+  (#set! priority 201))
 (param_decl
   param_name: (identifier) @variable.parameter
   (#set! priority 201))
