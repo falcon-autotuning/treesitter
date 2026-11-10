@@ -313,9 +313,9 @@ module.exports = grammar({
 
     call_expr: $ => prec.left(seq(
       field('func', $._postfix_expr),
-      token.immediate('('),
+      '(',
       commaSep(choice($.named_arg, $._expr)),
-      token.immediate(')')
+      ')'
     )),
 
     member_expr: $ => prec.left(seq(
@@ -326,9 +326,9 @@ module.exports = grammar({
 
     index_expr: $ => prec.left(seq(
       field('object', $._postfix_expr),
-      token.immediate('['),
+      '[',
       field('index', $._expr),
-      token.immediate(']')
+      ']'
     )),
 
     _postfix_expr: $ => choice(

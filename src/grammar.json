@@ -1552,11 +1552,8 @@
             }
           },
           {
-            "type": "IMMEDIATE_TOKEN",
-            "content": {
-              "type": "STRING",
-              "value": "("
-            }
+            "type": "STRING",
+            "value": "("
           },
           {
             "type": "CHOICE",
@@ -1610,11 +1607,8 @@
             ]
           },
           {
-            "type": "IMMEDIATE_TOKEN",
-            "content": {
-              "type": "STRING",
-              "value": ")"
-            }
+            "type": "STRING",
+            "value": ")"
           }
         ]
       }
@@ -1666,11 +1660,8 @@
             }
           },
           {
-            "type": "IMMEDIATE_TOKEN",
-            "content": {
-              "type": "STRING",
-              "value": "["
-            }
+            "type": "STRING",
+            "value": "["
           },
           {
             "type": "FIELD",
@@ -1681,11 +1672,8 @@
             }
           },
           {
-            "type": "IMMEDIATE_TOKEN",
-            "content": {
-              "type": "STRING",
-              "value": "]"
-            }
+            "type": "STRING",
+            "value": "]"
           }
         ]
       }

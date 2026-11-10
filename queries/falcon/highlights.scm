@@ -89,7 +89,20 @@
 
 
 ; Module-qualified names in expressions / uses clauses
-(call_expr func: (qualified_name symbol: (identifier) @function.call))
+(call_expr
+  func: (qualified_name
+    symbol: (identifier) @function.call
+      (#set! priority 300)))
+(member_expr
+  object: (qualified_name
+    symbol: (identifier) @variable))
+(call_expr
+  func: (member_expr
+    object: (qualified_name
+      symbol: (identifier) @type (#set! priority 301))
+    member: (identifier) @function.call
+      (#match? @function.call "^New")
+      (#set! priority 301)))
 
 ; Highlight modules (supports 1-2 nesting levels)
 ;; Color module portion in io::println
@@ -98,6 +111,16 @@
     symbol: (identifier) @module (#set! priority 201))
   (module_sep)      @punctuation.delimiter (#set! priority 300)
   symbol: (identifier) @function.call (#set! priority 200))
+(var_decl_stmt
+  variable_name: (variable) @variable
+  (#set! priority 201))
+(param_decl
+  param_name: (identifier) @variable.parameter
+  (#set! priority 201))
+(assignment_target
+  (variable) @variable
+  (#set! priority 201))
+; Fallback identifier expression
 (qualified_name
   symbol: (identifier) @variable)
 
