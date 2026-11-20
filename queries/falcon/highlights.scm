@@ -52,6 +52,10 @@
 ; Assignments and transitions
 (assignment_target
   (variable) @variable)
+(for_stmt
+  "for" @keyword.repeat
+  variable: (identifier) @variable
+  "in" @keyword.repeat)
 (transition_stmt 
   target: (identifier) @function.method (#set! priority 201))
 
@@ -143,6 +147,7 @@
 ["[" "]"] @punctuation.bracket
 (direction) @punctuation.delimiter
 ";"       @punctuation.delimiter
+":"       @punctuation.delimiter
 ","       @punctuation.delimiter
 "."       @punctuation.delimiter
 "="       @operator.assignment

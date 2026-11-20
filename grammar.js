@@ -96,13 +96,27 @@ module.exports = grammar({
       optional(field('body', $.struct_routine_body))
     ),
 
-    // -----------------------------------------------------------------------
-    // Block for state bodies — statements ARE wrapped in `stmt`
-    // -----------------------------------------------------------------------
     block: $ => seq(
       '{',
-      repeat($.stmt),
+      repeat(choice($.for_stmt, $.stmt)),
       '}'
+    ),
+
+    for_range: $ => prec.right(choice(
+      seq(
+        field('start', $._expr),
+        ':',
+        field('end', $._expr),
+      ),
+      $._expr,
+    )),
+
+    for_stmt: $ => seq(
+      'for',
+      field('variable', $.identifier),
+      'in',
+      field('range', $.for_range),
+      field('body', $.struct_routine_body)
     ),
 
     // -----------------------------------------------------------------------
@@ -118,6 +132,7 @@ module.exports = grammar({
     // Statements valid inside a struct routine body.
     // Matches parser.y's struct_routine_stmt alternatives.
     struct_routine_stmt: $ => choice(
+      $.for_stmt,
       $.var_decl_stmt,
       $.assign_stmt,
       $._expr_stmt,
