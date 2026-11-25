@@ -335,7 +335,7 @@ module.exports = grammar({
 
     member_expr: $ => prec.left(seq(
       field('object', $._postfix_expr),
-      token.immediate('.'),
+      '.',
       field('member', $.identifier)
     )),
 
